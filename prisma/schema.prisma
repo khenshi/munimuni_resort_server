@@ -1,0 +1,257 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Get a free hosted Postgres database in seconds: `npx create-db`
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// --- ENUMS ---
+enum PricingModel { 
+  PER_PERSON
+  PER_UNIT
+}
+
+enum BookingType { 
+  OVERNIGHT
+  DAY_TOUR 
+}
+
+enum AccommCategory { 
+  ROOM 
+  COTTAGE 
+}
+
+enum AccommStatus { 
+  AVAILABLE
+  MAINTENANCE 
+  OUT_OF_ORDER 
+}
+
+// enum IdType { 
+//   PASSPORT 
+//   DRIVERS_LICENSE 
+//   NATIONAL_ID 
+// }
+
+// enum AgeCategory { ADULT, CHILD, INFANT }
+// enum BookingStatus { PENDING, CONFIRMED, CANCELLED, COMPLETED }
+// enum PaymentMethod { CREDIT_CARD, BANK_TRANSFER, CASH, E_WALLET }
+// enum PaymentType { DOWNPAYMENT, FULL_PAYMENT, BALANCE }
+// enum PaymentStatus { PENDING, PAID, FAILED, REFUNDED }
+// enum ExtraCategory { FOOD, SERVICE, EQUIPMENT }
+enum InclusionCategory { 
+  MEAL 
+  ACTIVITY 
+  AMENITY 
+}
+
+// --- CATALOG ---
+
+model Package {
+  id             String                 @id @default(uuid())
+  name           String                 @unique
+  slug           String                 @unique
+  basePrice      Decimal
+  pricingModel   PricingModel
+  bookingType    BookingType
+  durationNights Int?
+  maxGuests      Int
+  isActive       Boolean                @default(true)
+  
+  accommodations PackageAccommodation[]
+  inclusions     PackageInclusion[]
+  bookings       Booking[]
+
+  @@map("packages")
+}
+
+model AccommodationType {
+  id                String                 @id @default(uuid())
+  name              String                 @unique
+  category          AccommCategory
+  capacity          Int
+  basePricePerNight Decimal
+  amenities         Json?
+  isActive          Boolean                @default(true)
+  
+  accommodations    Accommodation[]
+  packages          PackageAccommodation[]
+
+  @@map("accommodation_types")
+}
+
+model Accommodation {
+  id                  String                 @id @default(uuid())
+  accommodationTypeId String
+  unitNumber          String                 @unique
+  floor               Int?
+  building            String?
+  status              AccommStatus
+  
+  type                AccommodationType      @relation(fields: [accommodationTypeId], references: [id])
+  bookings            BookedAccommodation[]
+
+  @@map("accommodations")
+}
+
+// --- JUNCTION ---
+
+model PackageAccommodation {
+  packageId           String
+  accommodationTypeId String
+  quantity            Int
+  priceOverride       Decimal?
+  sortOrder           Int
+  
+  package             Package           @relation(fields: [packageId], references: [id])
+  accommodationType   AccommodationType @relation(fields: [accommodationTypeId], references: [id])
+
+  @@id([packageId, accommodationTypeId])
+  @@map("package_accommodations")
+}
+
+model PackageInclusion {
+  id                 String            @id @default(uuid())
+  packageId          String
+  name               String
+  category           InclusionCategory
+  quantityPerBooking Int
+  description        String?
+  
+  package            Package           @relation(fields: [packageId], references: [id])
+
+  @@map("package_inclusions")
+}
+
+// --- PEOPLE ---
+
+// model Customer {
+//   id          String    @id @default(uuid())
+//   firstName   String
+//   lastName    String
+//   email       String    @unique
+//   phone       String?
+//   nationality String?   @db.Char(2)
+//   idType      IdType?
+//   dateOfBirth DateTime? @db.Date
+//   isActive    Boolean   @default(true)
+  
+//   bookings    Booking[]
+
+//   @@map("customers")
+// }
+
+// model BookingGuest {
+//   id          String      @id @default(uuid())
+//   bookingId   String
+//   firstName   String
+//   lastName    String
+//   isPrimary   Boolean     @default(false)
+//   ageCategory AgeCategory
+//   idType      IdType?
+//   idNumber    String?
+  
+//   booking     Booking     @relation(fields: [bookingId], references: [id])
+
+//   @@map("booking_guests")
+// }
+
+// // --- BOOKING ---
+
+// model Booking {
+//   id             String                @id @default(uuid())
+//   referenceCode  String                @unique
+//   customerId     String
+//   packageId      String
+//   bookingType    BookingType
+//   visitDate      DateTime?             @db.Date
+//   checkIn        DateTime?             @db.Date
+//   checkOut       DateTime?             @db.Date
+//   guestCount     Int
+//   status         BookingStatus         @default(PENDING)
+//   subtotal       Decimal
+//   extrasTotal    Decimal
+//   discountAmount Decimal               @default(0)
+//   totalPrice     Decimal
+  
+//   customer       Customer              @relation(fields: [customerId], references: [id])
+//   package        Package               @relation(fields: [packageId], references: [id])
+//   accommodations BookedAccommodation[]
+//   guests         BookingGuest[]
+//   payments       Payment[]
+//   extras         BookingExtra[]
+//   statusLogs     BookingStatusLog[]
+
+//   @@map("bookings")
+// }
+
+// model BookedAccommodation {
+//   id              String        @id @default(uuid())
+//   bookingId       String
+//   accommodationId String
+//   pricePerNight   Decimal
+//   checkIn         DateTime?     @db.Date
+//   checkOut        DateTime?     @db.Date
+//   visitDate       DateTime?     @db.Date
+  
+//   booking         Booking       @relation(fields: [bookingId], references: [id])
+//   accommodation   Accommodation @relation(fields: [accommodationId], references: [id])
+
+//   @@map("booked_accommodations")
+// }
+
+// // --- FINANCE ---
+
+// model Payment {
+//   id             String        @id @default(uuid())
+//   bookingId      String
+//   transactionRef String        @unique
+//   amount         Decimal
+//   currency       String        @db.Char(3)
+//   method         PaymentMethod
+//   type           PaymentType
+//   status         PaymentStatus @default(PENDING)
+//   paidAt         DateTime?     @db.Timestamp()
+  
+//   booking        Booking       @relation(fields: [bookingId], references: [id])
+
+//   @@map("payments")
+// }
+
+// model BookingExtra {
+//   id            String        @id @default(uuid())
+//   bookingId     String
+//   name          String
+//   category      ExtraCategory
+//   unitPrice     Decimal
+//   quantity      Int
+//   totalPrice    Decimal
+//   scheduledDate DateTime?     @db.Date
+  
+//   booking       Booking       @relation(fields: [bookingId], references: [id])
+
+//   @@map("booking_extras")
+// }
+
+// // --- AUDIT ---
+
+// model BookingStatusLog {
+//   id         String   @id @default(uuid())
+//   bookingId  String
+//   fromStatus String?
+//   toStatus   String
+//   changedBy  String?
+//   reason     String?  @db.Text
+//   changedAt  DateTime @default(now()) @db.Timestamp()
+  
+//   booking    Booking  @relation(fields: [bookingId], references: [id])
+
+//   @@map("booking_status_logs")
+// }
