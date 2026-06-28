@@ -12,246 +12,379 @@ datasource db {
   provider = "postgresql"
 }
 
-// --- ENUMS ---
-enum PricingModel { 
-  PER_PERSON
-  PER_UNIT
-}
-
-enum BookingType { 
-  OVERNIGHT
-  DAY_TOUR 
-}
-
-enum AccommCategory { 
-  ROOM 
-  COTTAGE 
-}
-
-enum AccommStatus { 
-  AVAILABLE
-  MAINTENANCE 
-  OUT_OF_ORDER 
-}
-
-// enum IdType { 
-//   PASSPORT 
-//   DRIVERS_LICENSE 
-//   NATIONAL_ID 
-// }
-
-// enum AgeCategory { ADULT, CHILD, INFANT }
-// enum BookingStatus { PENDING, CONFIRMED, CANCELLED, COMPLETED }
-// enum PaymentMethod { CREDIT_CARD, BANK_TRANSFER, CASH, E_WALLET }
-// enum PaymentType { DOWNPAYMENT, FULL_PAYMENT, BALANCE }
-// enum PaymentStatus { PENDING, PAID, FAILED, REFUNDED }
-// enum ExtraCategory { FOOD, SERVICE, EQUIPMENT }
-enum InclusionCategory { 
-  MEAL 
-  ACTIVITY 
-  AMENITY 
-}
-
-// --- CATALOG ---
+// ============================================================
+// GROUP 1 — CORE CATALOG
+// ============================================================
 
 model Package {
-  id             String                 @id @default(uuid())
-  name           String                 @unique
-  slug           String                 @unique
-  basePrice      Decimal
-  pricingModel   PricingModel
+  id             BigInt       @id @default(autoincrement())
+  name           String       @unique @db.VarChar(120)
+  slug           String       @unique @db.VarChar(140)
+  description    String?      @db.Text
   bookingType    BookingType
-  durationNights Int?
-  maxGuests      Int
-  isActive       Boolean                @default(true)
-  
-  accommodations PackageAccommodation[]
-  inclusions     PackageInclusion[]
-  bookings       Booking[]
+  pricingModel   PricingModel
+  basePrice      Decimal      @db.Decimal(10, 2)
+  // PER_PERSON: price per head | PER_ROOM: price per room per night | FLAT_RATE: fixed total
+  durationNights Int?         @db.SmallInt
+  // NULL for day tours — overnight packages must set this
+  maxGuests      Int          @default(2) @db.SmallInt
+  isActive       Boolean      @default(true)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  // Relations
+  packageAccommodations PackageAccommodation[]
+  packageInclusions     PackageInclusion[]
+  // bookings              Booking[]
 
   @@map("packages")
 }
 
 model AccommodationType {
-  id                String                 @id @default(uuid())
-  name              String                 @unique
-  category          AccommCategory
-  capacity          Int
-  basePricePerNight Decimal
+  id                BigInt                @id @default(autoincrement())
+  name              String                @unique @db.VarChar(100)
+  category          AccommodationCategory
+  description       String?               @db.Text
+  capacity          Int                   @db.SmallInt
+  basePricePerNight Decimal               @db.Decimal(10, 2)
   amenities         Json?
-  isActive          Boolean                @default(true)
-  
-  accommodations    Accommodation[]
-  packages          PackageAccommodation[]
+  isActive          Boolean               @default(true)
+
+  // Relations
+  packageAccommodations PackageAccommodation[]
+  accommodations        Accommodation[]
 
   @@map("accommodation_types")
 }
 
 model Accommodation {
-  id                  String                 @id @default(uuid())
-  accommodationTypeId String
-  unitNumber          String                 @unique
-  floor               Int?
-  building            String?
-  status              AccommStatus
-  
-  type                AccommodationType      @relation(fields: [accommodationTypeId], references: [id])
-  bookings            BookedAccommodation[]
+  id                  BigInt              @id @default(autoincrement())
+  accommodationTypeId BigInt
+  unitNumber          String              @unique @db.VarChar(20)
+  floor               Int?                @db.SmallInt
+  building            String?             @db.VarChar(60)
+  status              AccommodationStatus @default(AVAILABLE)
+  notes               String?             @db.Text
+
+  // Relations
+  accommodationType    AccommodationType    @relation(fields: [accommodationTypeId], references: [id])
+  // bookedAccommodations BookedAccommodation[]
 
   @@map("accommodations")
 }
 
-// --- JUNCTION ---
+// ============================================================
+// GROUP 2 — PACKAGE COMPOSITION (Junctions)
+// ============================================================
 
 model PackageAccommodation {
-  packageId           String
-  accommodationTypeId String
-  quantity            Int
-  priceOverride       Decimal?
-  sortOrder           Int
-  
-  package             Package           @relation(fields: [packageId], references: [id])
-  accommodationType   AccommodationType @relation(fields: [accommodationTypeId], references: [id])
+  packageId           BigInt
+  accommodationTypeId BigInt
+  quantity            Int      @default(1) @db.SmallInt
+  priceOverride       Decimal? @db.Decimal(10, 2)
+  sortOrder           Int      @default(0) @db.SmallInt
+
+  // Relations
+  package           Package           @relation(fields: [packageId], references: [id])
+  accommodationType AccommodationType @relation(fields: [accommodationTypeId], references: [id])
 
   @@id([packageId, accommodationTypeId])
   @@map("package_accommodations")
 }
 
 model PackageInclusion {
-  id                 String            @id @default(uuid())
-  packageId          String
-  name               String
+  id                 BigInt            @id @default(autoincrement())
+  packageId          BigInt
+  name               String            @db.VarChar(120)
   category           InclusionCategory
-  quantityPerBooking Int
-  description        String?
-  
-  package            Package           @relation(fields: [packageId], references: [id])
+  quantityPerBooking Int               @default(1) @db.SmallInt
+  description        String?           @db.Text
+  sortOrder          Int               @default(0) @db.SmallInt
+
+  // Relations
+  package Package @relation(fields: [packageId], references: [id])
 
   @@map("package_inclusions")
 }
 
-// --- PEOPLE ---
+// ============================================================
+// GROUP 3 — PEOPLE
+// ============================================================
 
 // model Customer {
-//   id          String    @id @default(uuid())
-//   firstName   String
-//   lastName    String
-//   email       String    @unique
-//   phone       String?
+//   id          BigInt    @id @default(autoincrement())
+//   firstName   String    @db.VarChar(80)
+//   lastName    String    @db.VarChar(80)
+//   email       String    @unique @db.VarChar(255)
+//   phone       String?   @db.VarChar(30)
 //   nationality String?   @db.Char(2)
 //   idType      IdType?
+//   idNumber    String?   @db.VarChar(60)
 //   dateOfBirth DateTime? @db.Date
 //   isActive    Boolean   @default(true)
-  
-//   bookings    Booking[]
+//   createdAt   DateTime  @default(now())
+
+//   // Relations
+//   bookings Booking[]
 
 //   @@map("customers")
 // }
 
 // model BookingGuest {
-//   id          String      @id @default(uuid())
-//   bookingId   String
-//   firstName   String
-//   lastName    String
+//   id          BigInt      @id @default(autoincrement())
+//   bookingId   BigInt
+//   firstName   String      @db.VarChar(80)
+//   lastName    String      @db.VarChar(80)
 //   isPrimary   Boolean     @default(false)
-//   ageCategory AgeCategory
+//   ageCategory AgeCategory @default(ADULT)
+//   dateOfBirth DateTime?   @db.Date
 //   idType      IdType?
-//   idNumber    String?
-  
-//   booking     Booking     @relation(fields: [bookingId], references: [id])
+//   idNumber    String?     @db.VarChar(60)
+
+//   // Relations
+//   booking Booking @relation(fields: [bookingId], references: [id])
 
 //   @@map("booking_guests")
 // }
 
-// // --- BOOKING ---
+// // ============================================================
+// // GROUP 4 — BOOKINGS
+// // ============================================================
 
 // model Booking {
-//   id             String                @id @default(uuid())
-//   referenceCode  String                @unique
-//   customerId     String
-//   packageId      String
-//   bookingType    BookingType
-//   visitDate      DateTime?             @db.Date
-//   checkIn        DateTime?             @db.Date
-//   checkOut       DateTime?             @db.Date
-//   guestCount     Int
-//   status         BookingStatus         @default(PENDING)
-//   subtotal       Decimal
-//   extrasTotal    Decimal
-//   discountAmount Decimal               @default(0)
-//   totalPrice     Decimal
-  
-//   customer       Customer              @relation(fields: [customerId], references: [id])
-//   package        Package               @relation(fields: [packageId], references: [id])
-//   accommodations BookedAccommodation[]
-//   guests         BookingGuest[]
-//   payments       Payment[]
-//   extras         BookingExtra[]
-//   statusLogs     BookingStatusLog[]
+//   id                 BigInt        @id @default(autoincrement())
+//   referenceCode      String        @unique @db.VarChar(20)
+//   customerId         BigInt
+//   packageId          BigInt?
+//   bookingType        BookingType
+//   // Mirrors package.bookingType; stored for direct queries without join
+
+//   // Date fields — only one set filled depending on bookingType
+//   visitDate          DateTime?     @db.Date
+//   // DAY_TOUR only: the single visit date
+//   checkIn            DateTime?     @db.Date
+//   // OVERNIGHT only: arrival date
+//   checkOut           DateTime?     @db.Date
+//   // OVERNIGHT only: departure date
+
+//   guestCount         Int           @default(1) @db.SmallInt
+//   status             BookingStatus @default(PENDING)
+//   subtotal           Decimal       @db.Decimal(12, 2)
+//   extrasTotal        Decimal       @default(0) @db.Decimal(12, 2)
+//   discountAmount     Decimal       @default(0) @db.Decimal(12, 2)
+//   totalPrice         Decimal       @db.Decimal(12, 2)
+//   // Stored (not computed) to lock in the quoted price at booking time
+//   specialRequests    String?       @db.Text
+//   cancellationReason String?       @db.Text
+//   createdAt          DateTime      @default(now())
+//   updatedAt          DateTime      @updatedAt
+
+//   // Relations
+//   customer             Customer              @relation(fields: [customerId], references: [id])
+//   package              Package?              @relation(fields: [packageId], references: [id])
+//   bookedAccommodations BookedAccommodation[]
+//   bookingGuests        BookingGuest[]
+//   payments             Payment[]
+//   bookingExtras        BookingExtra[]
+//   statusLogs           BookingStatusLog[]
 
 //   @@map("bookings")
 // }
 
 // model BookedAccommodation {
-//   id              String        @id @default(uuid())
-//   bookingId       String
-//   accommodationId String
-//   pricePerNight   Decimal
-//   checkIn         DateTime?     @db.Date
-//   checkOut        DateTime?     @db.Date
-//   visitDate       DateTime?     @db.Date
-  
-//   booking         Booking       @relation(fields: [bookingId], references: [id])
-//   accommodation   Accommodation @relation(fields: [accommodationId], references: [id])
+//   id              BigInt    @id @default(autoincrement())
+//   bookingId       BigInt
+//   accommodationId BigInt
+//   pricePerNight   Decimal   @db.Decimal(10, 2)
+//   // Rate snapshot at booking time — survives future price changes
+
+//   // Only one pair will be filled based on bookingType:
+//   checkIn         DateTime? @db.Date
+//   // OVERNIGHT: arrival date
+//   checkOut        DateTime? @db.Date
+//   // OVERNIGHT: departure date
+//   visitDate       DateTime? @db.Date
+//   // DAY_TOUR: the single day the unit is reserved
+
+//   // Relations
+//   booking       Booking       @relation(fields: [bookingId], references: [id])
+//   accommodation Accommodation @relation(fields: [accommodationId], references: [id])
+
+//   // DB-level double-booking guards
+//   @@unique([accommodationId, checkIn, checkOut])
+//   // Overnight: same unit + same date range blocked
+//   @@unique([accommodationId, visitDate])
+//   // Day tour: same unit + same day blocked
 
 //   @@map("booked_accommodations")
 // }
 
-// // --- FINANCE ---
+// ============================================================
+// GROUP 5 — FINANCIALS
+// ============================================================
 
 // model Payment {
-//   id             String        @id @default(uuid())
-//   bookingId      String
-//   transactionRef String        @unique
-//   amount         Decimal
-//   currency       String        @db.Char(3)
+//   id             BigInt        @id @default(autoincrement())
+//   bookingId      BigInt
+//   transactionRef String        @unique @db.VarChar(100)
+//   amount         Decimal       @db.Decimal(12, 2)
+//   currency       String        @default("PHP") @db.Char(3)
 //   method         PaymentMethod
 //   type           PaymentType
 //   status         PaymentStatus @default(PENDING)
-//   paidAt         DateTime?     @db.Timestamp()
-  
-//   booking        Booking       @relation(fields: [bookingId], references: [id])
+//   paidAt         DateTime?
+//   notes          String?       @db.Text
+//   createdAt      DateTime      @default(now())
+
+//   // Relations
+//   booking Booking @relation(fields: [bookingId], references: [id])
 
 //   @@map("payments")
 // }
 
 // model BookingExtra {
-//   id            String        @id @default(uuid())
-//   bookingId     String
-//   name          String
+//   id            BigInt        @id @default(autoincrement())
+//   bookingId     BigInt
+//   name          String        @db.VarChar(120)
 //   category      ExtraCategory
-//   unitPrice     Decimal
-//   quantity      Int
-//   totalPrice    Decimal
+//   unitPrice     Decimal       @db.Decimal(10, 2)
+//   quantity      Int           @default(1) @db.SmallInt
+//   totalPrice    Decimal       @db.Decimal(10, 2)
 //   scheduledDate DateTime?     @db.Date
-  
-//   booking       Booking       @relation(fields: [bookingId], references: [id])
+
+//   // Relations
+//   booking Booking @relation(fields: [bookingId], references: [id])
 
 //   @@map("booking_extras")
 // }
 
-// // --- AUDIT ---
+// // ============================================================
+// // GROUP 6 — AUDIT TRAIL
+// // ============================================================
 
 // model BookingStatusLog {
-//   id         String   @id @default(uuid())
-//   bookingId  String
-//   fromStatus String?
-//   toStatus   String
-//   changedBy  String?
+//   id         BigInt   @id @default(autoincrement())
+//   bookingId  BigInt
+//   fromStatus String?  @db.VarChar(30)
+//   toStatus   String   @db.VarChar(30)
+//   changedBy  String?  @db.VarChar(100)
 //   reason     String?  @db.Text
-//   changedAt  DateTime @default(now()) @db.Timestamp()
-  
-//   booking    Booking  @relation(fields: [bookingId], references: [id])
+//   changedAt  DateTime @default(now())
+
+//   // Relations
+//   booking Booking @relation(fields: [bookingId], references: [id])
 
 //   @@map("booking_status_logs")
+// }
+
+// ============================================================
+// ENUMS
+// ============================================================
+
+enum BookingType {
+  OVERNIGHT
+  DAY_TOUR
+
+  @@map("booking_type")
+}
+
+enum PricingModel {
+  PER_ROOM
+  PER_PERSON
+  FLAT_RATE
+
+  @@map("pricing_model")
+}
+
+enum AccommodationCategory {
+  ROOM
+  VILLA
+  COTTAGE
+  SUITE
+  CABIN
+
+  @@map("accommodation_category")
+}
+
+enum AccommodationStatus {
+  AVAILABLE
+  MAINTENANCE
+  RETIRED
+
+  @@map("accommodation_status")
+}
+
+enum InclusionCategory {
+  ENTRANCE
+  FURNITURE
+  EQUIPMENT
+  AMENITY
+  OTHER
+
+  @@map("inclusion_category")
+}
+
+// enum BookingStatus {
+//   PENDING
+//   CONFIRMED
+//   CHECKED_IN
+//   CHECKED_OUT
+//   CANCELLED
+//   NO_SHOW
+
+//   @@map("booking_status")
+// }
+
+// enum PaymentMethod {
+//   CASH
+//   CARD
+//   GCASH
+//   BANK_TRANSFER
+//   ONLINE
+
+//   @@map("payment_method")
+// }
+
+// enum PaymentType {
+//   DEPOSIT
+//   FULL
+//   PARTIAL
+//   REFUND
+
+//   @@map("payment_type")
+// }
+
+// enum PaymentStatus {
+//   PENDING
+//   COMPLETED
+//   FAILED
+//   REFUNDED
+
+//   @@map("payment_status")
+// }
+
+// enum ExtraCategory {
+//   DINING
+//   WELLNESS
+//   TRANSPORT
+//   ACTIVITY
+//   OTHER
+
+//   @@map("extra_category")
+// }
+
+// enum IdType {
+//   PASSPORT
+//   NATIONAL_ID
+//   DRIVERS_LICENSE
+
+//   @@map("id_type")
+// }
+
+// enum AgeCategory {
+//   ADULT
+//   CHILD
+//   INFANT
+
+//   @@map("age_category")
 // }
