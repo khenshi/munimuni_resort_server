@@ -5,11 +5,20 @@
 
 generator client {
   provider = "prisma-client"
-  output   = "../src/generated/prisma"
+  output   = "./generated/prisma"
 }
 
 datasource db {
   provider = "postgresql"
+}
+
+model User {
+  id        Int      @id @default(autoincrement()) // Or BigInt/UUID!
+  email     String   @unique
+  password  String   // We will ONLY store the bcrypt hash here
+  name      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 // ============================================================
@@ -46,13 +55,12 @@ model AccommodationType {
   category          AccommodationCategory
   description       String?               @db.Text
   capacity          Int                   @db.SmallInt
-  basePricePerNight Decimal               @db.Decimal(10, 2)
-  amenities         Json?
   isActive          Boolean               @default(true)
 
   // Relations
   packageAccommodations PackageAccommodation[]
   accommodations        Accommodation[]
+  accommodationAmenities  AccommodationTypeAmenity[]
 
   @@map("accommodation_types")
 }
@@ -61,8 +69,6 @@ model Accommodation {
   id                  BigInt              @id @default(autoincrement())
   accommodationTypeId BigInt
   unitNumber          String              @unique @db.VarChar(20)
-  floor               Int?                @db.SmallInt
-  building            String?             @db.VarChar(60)
   status              AccommodationStatus @default(AVAILABLE)
   notes               String?             @db.Text
 
@@ -105,6 +111,40 @@ model PackageInclusion {
   package Package @relation(fields: [packageId], references: [id])
 
   @@map("package_inclusions")
+}
+
+// ============================================================
+// GROUP 3 — AMENITIES & FEATURES (Normalized)
+// ============================================================
+
+model Amenity {
+  id          BigInt          @id @default(autoincrement())
+  name        String          @unique @db.VarChar(100) // e.g., "Queen Bed", "Air Conditioning", "Full Kitchen"
+  category    AmenityCategory
+  description String?         @db.VarChar(255) // Optional: "Locally sourced organic toiletries"
+  iconName    String?         @db.VarChar(50)  // Useful for frontend UI mapping (e.g., "mdi-wifi")
+  isActive    Boolean         @default(true)
+
+  // Relations
+  accommodationAmenities AccommodationTypeAmenity[]
+
+  @@map("amenities")
+}
+
+model AccommodationTypeAmenity {
+  accommodationTypeId BigInt
+  amenityId           BigInt
+  
+  // Capturing specifics per room type
+  quantity            Int?    @default(1) @db.SmallInt // Perfect for "2x Queen Beds"
+  notes               String? @db.VarChar(100)         // e.g., "65-inch Smart TV" or "Shared with adjacent room"
+
+  // Relations
+  accommodationType AccommodationType @relation(fields: [accommodationTypeId], references: [id], onDelete: Cascade)
+  amenity           Amenity           @relation(fields: [amenityId], references: [id], onDelete: Restrict)
+
+  @@id([accommodationTypeId, amenityId])
+  @@map("accommodation_type_amenities")
 }
 
 // ============================================================
@@ -322,6 +362,19 @@ enum InclusionCategory {
   OTHER
 
   @@map("inclusion_category")
+}
+
+enum AmenityCategory {
+  BEDDING
+  APPLIANCE
+  BATHROOM
+  KITCHEN
+  OUTDOOR
+  VIEW
+  CONNECTIVITY
+  OTHER
+
+  @@map("amenity_category")
 }
 
 // enum BookingStatus {

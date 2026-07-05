@@ -1,0 +1,41 @@
+import type { Request, Response, NextFunction } from 'express';
+import jwt from 'jsonwebtoken';
+import * as authService from '../services/auth.service.js';
+import type { RegisterUserInput } from '../validations/auth.validation.js';
+import { AppError } from '../common/AppError.js';
+
+export const register = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const validatedData = req.body as RegisterUserInput;
+
+    // 1. Let the service handle the database logic
+    const newUser = await authService.registerUser(validatedData);
+
+    // 2. Safely grab the JWT Secret (satisfying strict TS mode)
+    const jwtSecret = process.env.JWT_SECRET;
+    if (!jwtSecret) {
+      throw new AppError('JWT_SECRET is not defined in environment variables', 500);
+    }
+
+    // 3. Generate the token (expires in 7 days)
+    const token = jwt.sign({ id: newUser.id }, jwtSecret, {
+      expiresIn: '7d',
+    });
+
+    // 4. Send the token in an HttpOnly cookie
+    res.cookie('jwt', token, {
+      httpOnly: true, // 👈 JavaScript cannot access this cookie
+      secure: process.env.NODE_ENV === 'production', // 👈 Only sent over HTTPS in prod
+      sameSite: 'strict', // 👈 Protects against CSRF attacks
+      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days in milliseconds
+    });
+
+    // 5. Send the success response (Notice: NO token in the JSON body!)
+    res.status(201).json({
+      status: 'success',
+      data: newUser,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
