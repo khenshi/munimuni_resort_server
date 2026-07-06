@@ -2,7 +2,14 @@ import rateLimit from 'express-rate-limit';
 import type { Request, Response, NextFunction } from 'express';
 import { AppError } from '../common/AppError.js';
 
-// 1. Parse the limit from the environment variable safely
+/*
+    Rate limiting middleware for the Express application.
+    This middleware restricts the number of requests a client can make to the server within a specified time window.
+    It helps prevent abuse, such as brute-force attacks or denial-of-service attacks, by limiting the rate of incoming requests.
+    The configuration can be adjusted via environment variables, allowing for flexibility in different deployment scenarios.
+*/
+
+// Parse the limit from the environment variable safely
 const maxRequests = process.env.RATE_LIMIT_MAX_REQUESTS 
   ? parseInt(process.env.RATE_LIMIT_MAX_REQUESTS, 10) 
   : 100;
@@ -13,7 +20,7 @@ export const apiLimiter = rateLimit({
   standardHeaders: true,    // Draft-7: Return rate limit info in the `RateLimit-*` headers
   legacyHeaders: false,     // Disable the `X-RateLimit-*` headers (deprecated)
   
-  // 2. The Senior Touch: Intercept the default response and use our global AppError
+  // Intercept the default response and use our global AppError
   handler: (req: Request, res: Response, next: NextFunction) => {
     next(new AppError('Too many requests from this IP, please try again in 15 minutes!', 429));
   },

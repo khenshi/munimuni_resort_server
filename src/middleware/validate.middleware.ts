@@ -4,12 +4,21 @@ import { AppError } from '../common/AppError.js'; // Note: Ensure the .js extens
 import type { ParamsDictionary } from 'express-serve-static-core';
 import type { ParsedQs } from 'qs';
 
+/*
+    Middleware for validating incoming requests using Zod schemas.
+    This middleware takes a Zod schema and validates the request's body, query, and params against it.
+    If validation fails, it throws an AppError with details about the validation issues.
+    If validation succeeds, it overwrites the request's body, query, and params with the validated data.
+*/
+
+// Define a type for the validated request data
 type ValidatedRequestData = {
   body?: unknown;
   query?: unknown;
   params?: unknown;
 };
 
+// The validate middleware function takes a Zod schema and returns an Express middleware function
 export const validate = <T extends ZodTypeAny>(schema: T) => {
   return async (req: Request, res: Response, next: NextFunction) => {
     try {
@@ -23,7 +32,7 @@ export const validate = <T extends ZodTypeAny>(schema: T) => {
         req.body = validatedData.body;
       }
 
-      // 👇 THE FIX: Overwrite the Express getter cleanly while keeping your ParsedQs type
+      // Overwrite the Express getter cleanly while keeping your ParsedQs type
       if (validatedData.query !== undefined) {
         Object.defineProperty(req, 'query', {
           value: validatedData.query as ParsedQs,
@@ -32,12 +41,14 @@ export const validate = <T extends ZodTypeAny>(schema: T) => {
           configurable: true,
         });
       }
-
+      
       if (validatedData.params !== undefined) {
         req.params = validatedData.params as ParamsDictionary;
       }
 
       next();
+
+    // Catch any validation errors and pass them to the global error handler
     } catch (error) {
       if (error instanceof ZodError) {
         const errorDetails = error.issues.map((issue) => ({

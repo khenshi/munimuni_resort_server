@@ -1,5 +1,12 @@
 import pino from 'pino';
 
+/*
+    Logger configuration for the Express application using Pino.
+    This configuration sets the logging level based on the environment variable LOG_LEVEL.
+    In development mode, it uses pino-pretty for more readable console output.
+    In production, it logs in a structured JSON format suitable for log aggregation systems.
+*/
+
 // Check if we are in development mode
 const isDevelopment = process.env.NODE_ENV !== 'production';
 

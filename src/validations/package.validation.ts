@@ -1,6 +1,13 @@
 import { z } from 'zod';
 
-// 1. The Create Schema (You already have this)
+/*
+    Validation schemas for package-related operations.
+    This includes schemas for creating, updating, and fetching packages.
+    Each schema defines the expected structure and constraints for incoming request data,
+    ensuring that only valid data is processed by the application.
+*/
+
+// Create Schema 
 export const createPackageSchema = z.object({
   body: z.object({
     name: z.string({ error: 'Package name is required' })
@@ -13,7 +20,7 @@ export const createPackageSchema = z.object({
   }).strict(),
 });
 
-// 2. The Get/Delete Schema (Validates the URL Parameter)
+// Get/Delete Schema (Validates the URL Parameter)
 export const getPackageSchema = z.object({
   params: z.object({
     // z.coerce automatically converts the string URL parameter to a number!
@@ -21,7 +28,7 @@ export const getPackageSchema = z.object({
   }),
 });
 
-// 3. The Update Schema (Combines params and an optional body)
+// Update Schema (Combines params and an optional body)
 export const updatePackageSchema = z.object({
   // Re-use the ID validation from above
   params: getPackageSchema.shape.params,
@@ -29,20 +36,18 @@ export const updatePackageSchema = z.object({
   body: createPackageSchema.shape.body.partial(), 
 });
 
-// 4. Export the strictly-inferred TypeScript Types for your Controllers
-export type CreatePackageInput = z.infer<typeof createPackageSchema>['body'];
-export type GetPackageParams = z.infer<typeof getPackageSchema>['params'];
-// (Optional: You can export UpdatePackageInput if you want, but Partial<CreatePackageInput> in the controller works perfectly too)
 
-// 1. The Query Schema for filtering
+// The Query Schema for filtering
 export const getAllPackagesSchema = z.object({
-  query: z.object({
-    // We make it optional so `GET /packages` still returns everything
-    bookingType: z.enum(['DAY_TOUR', 'OVERNIGHT'], { 
-      error: 'Booking type must be either DAY_TOUR or OVERNIGHT' 
-    }).optional(),
-  }),
+    query: z.object({
+        // We make it optional so `GET /packages` still returns everything
+        bookingType: z.enum(['DAY_TOUR', 'OVERNIGHT'], { 
+            error: 'Booking type must be either DAY_TOUR or OVERNIGHT' 
+        }).optional(),
+    }),
 });
 
-// 2. Export the inferred type for the Controller
+// Export the strictly-inferred TypeScript Types for your Controllers
+export type CreatePackageInput = z.infer<typeof createPackageSchema>['body'];
+export type GetPackageParams = z.infer<typeof getPackageSchema>['params'];
 export type GetAllPackagesQuery = z.infer<typeof getAllPackagesSchema>['query'];

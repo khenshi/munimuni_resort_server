@@ -1,6 +1,11 @@
 import type { Request, Response, NextFunction } from 'express';
 
-// Wraps async controllers to pass rejected promises to Express's next()
+/*
+    A utility function to wrap asynchronous route handlers in Express.
+    This ensures that any errors thrown in the async function are passed to the next middleware (error handler).
+    Without this wrapper, unhandled promise rejections could occur, leading to uncaught exceptions.
+*/
+
 export const asyncHandler = (
   fn: (req: Request, res: Response, next: NextFunction) => Promise<any>
 ) => {

@@ -2,6 +2,14 @@ import type { Request, Response, NextFunction } from 'express';
 import * as packageService from '../services/package.service.js';
 import type { CreatePackageInput, GetPackageParams, GetAllPackagesQuery } from '../validations/package.validation.js';
 
+/*
+    Controller for handling package-related requests.
+    This includes fetching all packages, fetching a package by ID, and other package-related endpoints.
+    Each controller function is responsible for validating input, calling the appropriate service,
+    and sending a standardized response back to the client.
+*/
+
+// function to get all packages, optionally filtered by bookingType
 export const getAllPackages = async (req: Request, res: Response, next: NextFunction) => {
   try {
     // Cast req.query safely using our new Zod type
@@ -16,9 +24,10 @@ export const getAllPackages = async (req: Request, res: Response, next: NextFunc
   }
 };
 
+// Controller to get a package by its ID
 export const getPackageById = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    // Validated by Zod middleware!
+    // Validated by Zod middleware
     const { id } = req.params as unknown as GetPackageParams;
     const pkg = await packageService.getPackageById(id);
     
@@ -51,13 +60,13 @@ export const getPackageById = async (req: Request, res: Response, next: NextFunc
 //   }
 // };
 
-export const deletePackage = async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const { id } = req.params as unknown as GetPackageParams;
-    await packageService.deletePackage(id);
+// export const deletePackage = async (req: Request, res: Response, next: NextFunction) => {
+//   try {
+//     const { id } = req.params as unknown as GetPackageParams;
+//     await packageService.deletePackage(id);
     
-    res.status(204).send(); // 204 No Content for successful deletions
-  } catch (error) {
-    next(error);
-  }
-};
+//     res.status(204).send(); // 204 No Content for successful deletions
+//   } catch (error) {
+//     next(error);
+//   }
+// };
